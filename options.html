@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>MindWell Settings</title>
+    <style>
+        body {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            font-family: 'Roboto', sans-serif;
+            color: #333;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #E6F0FA;
+            border-radius: 8px;
+        }
+
+        .logo {
+            width: 48px;
+            height: 48px;
+            margin-right: 20px;
+        }
+
+        h1 {
+            margin: 0;
+            color: #333;
+            font-size: 24px;
+        }
+
+        .settings-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .settings-section h2 {
+            margin: 0 0 20px 0;
+            color: #333;
+            font-size: 18px;
+        }
+
+        .setting-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .setting-label {
+            flex: 1;
+            margin-right: 20px;
+        }
+
+        .setting-description {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: #3498db;
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(26px);
+        }
+
+        .save-button {
+            display: block;
+            width: 200px;
+            margin: 20px auto;
+            padding: 12px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .save-button:hover {
+            background: #2980b9;
+        }
+
+        .status {
+            text-align: center;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .status.success {
+            background: #D4EDDA;
+            color: #155724;
+            display: block;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="icon48.png" alt="MindWell Logo" class="logo">
+        <h1>MindWell Settings</h1>
+    </div>
+
+    <div class="settings-section">
+        <h2>Tracking Settings</h2>
+        <div class="setting-item">
+            <div class="setting-label">
+                <div>Enable Activity Tracking</div>
+                <div class="setting-description">Track your browsing activity to provide wellness insights</div>
+            </div>
+            <label class="toggle-switch">
+                <input type="checkbox" id="trackingToggle" checked>
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+    </div>
+
+    <div class="settings-section">
+        <h2>Notification Settings</h2>
+        <div class="setting-item">
+            <div class="setting-label">
+                <div>Break Reminders</div>
+                <div class="setting-description">Receive reminders to take breaks during long browsing sessions</div>
+            </div>
+            <label class="toggle-switch">
+                <input type="checkbox" id="breakRemindersToggle" checked>
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+    </div>
+
+    <button id="saveButton" class="save-button">Save Settings</button>
+    <div id="status" class="status"></div>
+
+    <script src="options.js"></script>
+</body>
+</html> 

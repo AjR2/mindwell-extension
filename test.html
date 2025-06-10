@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MindWell Extension Test</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            line-height: 1.6;
+        }
+        #status { 
+            padding: 15px; 
+            margin: 15px 0; 
+            border-radius: 4px; 
+            font-weight: bold;
+        }
+        .success { 
+            background-color: #d4edda; 
+            color: #155724; 
+            border-left: 4px solid #28a745;
+        }
+        .error { 
+            background-color: #f8d7da; 
+            color: #721c24; 
+            border-left: 4px solid #dc3545;
+        }
+        .log-info, .log-error {
+            padding: 8px 12px;
+            margin: 5px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .log-info {
+            background-color: #e2f0fd;
+            border-left: 3px solid #0d6efd;
+        }
+        .log-error {
+            background-color: #f8d7da;
+            border-left: 3px solid #dc3545;
+        }
+        #testButton {
+            background-color: #0d6efd;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        #testButton:hover {
+            background-color: #0b5ed7;
+        }
+        .instructions {
+            background-color: #e2e3e5;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+            border-left: 4px solid #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <h1>MindWell Extension Test</h1>
+    <div class="instructions">
+        <h3>Testing Instructions:</h3>
+        <ol>
+            <li>Open Chrome and go to <code>chrome://extensions</code></li>
+            <li>Enable 'Developer mode' (toggle in top-right corner)</li>
+            <li>Click 'Load unpacked' and select the extension directory</li>
+            <li>Click the button below to test the connection</li>
+        </ol>
+    </div>
+    <div id="status">Click the button below to test the extension connection...</div>
+    <button id="testButton">Test Extension Connection</button>
+    <h3>Test Results:</h3>
+    <div id="testResults"></div>
+    
+    <script>
+        // Test if extension is loaded
+        const statusEl = document.getElementById('status');
+        
+        function updateStatus(message, isError = false) {
+            statusEl.textContent = message;
+            statusEl.className = isError ? 'error' : 'success';
+            console.log(`[Test] ${message}`);
+            
+            // Add to the page for visibility
+            const log = document.createElement('div');
+            const timestamp = new Date().toLocaleTimeString();
+            log.textContent = `[${timestamp}] ${message}`;
+            log.className = isError ? 'log-error' : 'log-info';
+            document.getElementById('testResults').prepend(log);
+        }
+        
+        // Check if we're running as an extension or a web page
+        function testExtensionConnection() {
+            if (typeof chrome === 'undefined' || !chrome.runtime) {
+                updateStatus('This page is not running as a Chrome extension. ' + 
+                           'Please load the extension and open this page through the extension popup.', true);
+                return false;
+            }
+            
+            updateStatus('Chrome extension API is available');
+            
+            // Test sending a message to the background script
+            chrome.runtime.sendMessage(
+                { type: 'testConnection' },
+                (response) => {
+                    if (chrome.runtime.lastError) {
+                        updateStatus(`Error: ${chrome.runtime.lastError.message}`, true);
+                    } else if (response) {
+                        updateStatus(`Success! Received response: ${JSON.stringify(response)}`);
+                    } else {
+                        updateStatus('No response received from background script', true);
+                    }
+                }
+            );
+            return true;
+        }
+        
+        // Add event listener for the test button
+        document.addEventListener('DOMContentLoaded', () => {
+            const testButton = document.getElementById('testButton');
+            if (testButton) {
+                testButton.addEventListener('click', testExtensionConnection);
+            }
+            
+            // Clear previous results
+            document.getElementById('testResults').innerHTML = '';
+            updateStatus('Ready to test. Click the button above to test the extension connection.');
+        });
+    </script>
+</body>
+</html>

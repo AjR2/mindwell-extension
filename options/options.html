@@ -1,0 +1,35 @@
+<!-- /Users/ajrudd/Joyous/mindwell-extension/options/options.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>MindWell Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="container">
+    <h1>MindWell Settings</h1>
+    
+    <div class="setting-group">
+      <h2>Wellness Stage</h2>
+      <select id="wellnessStage">
+        <option value="awareness">Awareness</option>
+        <option value="assessment">Assessment</option>
+        <option value="support">Support</option>
+        <option value="growth">Growth</option>
+        <option value="maintenance">Maintenance</option>
+      </select>
+    </div>
+    
+    <div class="setting-group">
+      <h2>Daily Time Goal (minutes)</h2>
+      <input type="number" id="dailyGoal" min="30" max="600" value="120">
+    </div>
+    
+    <div class="setting-group">
+      <h2>Blocked Websites</h2>
+      <div class="blocked-sites">
+        <input type="text" id="siteInput" placeholder="example.com">
+        <button id="addSite">Add</button>
+        <ul id="blockedSitesList"></ul>
+      </div>

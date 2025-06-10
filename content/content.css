@@ -1,0 +1,115 @@
+/* Content styles for MindWell extension */
+
+/* Blacklist warning banner */
+.mindwell-blacklist-warning {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background-color: #ff4444;
+  color: white;
+  padding: 10px 20px;
+  text-align: center;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  z-index: 10000;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.mindwell-blacklist-warning button {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid white;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-left: 15px;
+}
+
+.mindwell-blacklist-warning button:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Focus mode overlay */
+.mindwell-focus-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  font-family: Arial, sans-serif;
+  font-size: 24px;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* Hidden elements that should be hidden in focus mode */
+.mindwell-focus-mode .social-media,
+.mindwell-focus-mode .recommended-videos,
+.mindwell-focus-mode .comments-section,
+.mindwell-focus-mode .sidebar {
+  display: none !important;
+}
+
+/* Notification styles */
+.mindwell-notification {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: #4a90e2;
+  color: white;
+  padding: 15px 20px;
+  border-radius: 5px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  z-index: 10000;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  max-width: 300px;
+  animation: mindwellFadeIn 0.3s ease-out;
+}
+
+@keyframes mindwellFadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Time tracking indicator */
+.mindwell-time-tracker {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+}
+
+.mindwell-time-tracker .indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+
+.mindwell-time-tracker .indicator.active {
+  background-color: #4caf50;
+}
+
+.mindwell-time-tracker .indicator.inactive {
+  background-color: #f44336;
+}

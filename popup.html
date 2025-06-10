@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>MindWell Companion</title>
+  <link rel="stylesheet" href="popup/popup.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="theme-healthy">
+  <div class="app">
+    <header class="header glass-card">
+      <div class="logo">
+        <img src="assets/icons/icon48.png" alt="MindWell" class="logo-icon">
+        <h1>MindWell</h1>
+      </div>
+      <button id="settings-btn" class="icon-btn" title="Settings">
+        <span class="material-icons">settings</span>
+      </button>
+      <select id="theme-switcher" title="Switch Theme" style="margin-left: 12px; border-radius: 8px; padding: 4px 8px; background: var(--bg-card); color: #fff; border: 1px solid rgba(255,255,255,0.2);">
+        <option value="healthy">🟢 Healthy</option>
+        <option value="moderate">🟡 Moderate</option>
+        <option value="concerning">🔴 Concerning</option>
+      </select>
+    </header>
+
+    <main class="main-content">
+      <div class="wellness-score glass-card">
+        <div class="score-circle">
+          <div class="score-value" id="score">--</div>
+          <div class="score-label">Wellness Score</div>
+        </div>
+        <div class="score-description" id="score-description">
+          Your digital wellness is being calculated...
+        </div>
+      </div>
+
+      <div class="stats-grid glass-card">
+        <div class="stat-card">
+          <div class="stat-value" id="today-time">0m</div>
+          <div class="stat-label">Today</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="daily-avg">0m</div>
+          <div class="stat-label">Daily Avg</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="focus-time">0m</div>
+          <div class="stat-label">Focus</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="distractions">0</div>
+          <div class="stat-label">Distractions</div>
+        </div>
+      </div>
+
+      <div class="quick-actions glass-card">
+        <button id="take-break" class="action-btn">
+          <span class="material-icons">self_improvement</span>
+          Take a Break
+        </button>
+        <button id="focus-mode" class="action-btn">
+          <span class="material-icons">timer</span>
+          Focus Mode
+        </button>
+      </div>
+    </main>
+
+    <div class="notifications" id="notifications">
+      <!-- Notifications will be added here dynamically -->
+    </div>
+  </div>
+
+  <!-- Score Breakdown Section -->
+  <div id="score-breakdown" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Score Breakdown</h2>
+        <button id="close-score-breakdown" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body" id="score-breakdown-content">
+        <!-- Score breakdown will be inserted here by JavaScript -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Settings</h2>
+        <button class="close-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="setting-group">
+          <h3>Daily Goals</h3>
+          <div class="form-group">
+            <label for="daily-limit">Daily Screen Time Limit (minutes):</label>
+            <input type="number" id="daily-limit" min="30" max="600" value="120">
+          </div>
+          <div class="form-group">
+            <label for="work-hours">Work Hours:</label>
+            <div class="time-range">
+              <input type="time" id="work-start" value="09:00">
+              <span>to</span>
+              <input type="time" id="work-end" value="17:00">
+            </div>
+          </div>
+        </div>
+        <div class="setting-group">
+          <h3>Notifications</h3>
+          <div class="form-group toggle-group">
+            <label>
+              <input type="checkbox" id="enable-notifications" checked>
+              Enable Notifications
+            </label>
+          </div>
+          <div class="form-group">
+            <label for="notification-interval">Reminder Interval (minutes):</label>
+            <input type="number" id="notification-interval" min="15" max="120" value="60">
+          </div>
+        </div>
+        <div class="setting-group">
+          <h3>Focus Mode</h3>
+          <div class="form-group toggle-group">
+            <label>
+              <input type="checkbox" id="enable-focus-mode">
+              Enable Focus Mode
+            </label>
+          </div>
+          <div class="form-group">
+            <label for="focus-duration">Focus Duration (minutes):</label>
+            <input type="number" id="focus-duration" min="5" max="120" value="25">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="save-settings" class="btn btn-primary">Save Changes</button>
+        <button id="reset-stats" class="btn btn-secondary">Reset Statistics</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup/scoreBreakdown.js"></script>
+  <script src="popup/popup.js" type="module"></script>
+</body>
+</html>
