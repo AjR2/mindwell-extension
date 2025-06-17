@@ -5,6 +5,8 @@
   <title>MindWell Companion</title>
   <link rel="stylesheet" href="popup/popup.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Material Icons from Google Fonts -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 </head>
 <body class="theme-healthy">
   <div class="app">
@@ -16,6 +18,9 @@
       <button id="settings-btn" class="icon-btn" title="Settings">
         <span class="material-icons">settings</span>
       </button>
+      <button id="score-breakdown-btn" class="icon-btn" title="Score Breakdown">
+        <span class="material-icons">psychology</span>
+      </button>
       <select id="theme-switcher" title="Switch Theme" style="margin-left: 12px; border-radius: 8px; padding: 4px 8px; background: var(--bg-card); color: #fff; border: 1px solid rgba(255,255,255,0.2);">
         <option value="healthy">🟢 Healthy</option>
         <option value="moderate">🟡 Moderate</option>
@@ -25,12 +30,10 @@
 
     <main class="main-content">
       <div class="wellness-score glass-card">
-        <div class="score-circle">
-          <div class="score-value" id="score">--</div>
-          <div class="score-label">Wellness Score</div>
-        </div>
-        <div class="score-description" id="score-description">
-          Your digital wellness is being calculated...
+        <canvas id="wellness-score-chart"></canvas>
+        <div class="score-overlay">
+          <div class="score-value" id="wellness-score-value">--</div>
+          <div class="score-label" id="wellness-score-label">Wellness Score</div>
         </div>
       </div>
 
@@ -54,15 +57,27 @@
       </div>
 
       <div class="quick-actions glass-card">
-        <button id="take-break" class="action-btn">
+        <button id="action-button" class="action-btn">
           <span class="material-icons">self_improvement</span>
           Take a Break
         </button>
-        <button id="focus-mode" class="action-btn">
-          <span class="material-icons">timer</span>
-          Focus Mode
-        </button>
       </div>
+
+      <div class="activity-chart-container glass-card">
+        <canvas id="activity-chart"></canvas>
+        <ul id="top-sites" class="top-sites-list">
+          <li>Loading activity data...</li>
+        </ul>
+      </div>
+
+      <div class="tracking-toggle-container glass-card">
+        <label class="toggle-switch">
+          <input type="checkbox" id="tracking-toggle">
+          <span class="slider round"></span>
+        </label>
+        <span>Track Activity</span>
+      </div>
+
     </main>
 
     <div class="notifications" id="notifications">
@@ -77,8 +92,10 @@
         <h2>Score Breakdown</h2>
         <button id="close-score-breakdown" class="close-btn">&times;</button>
       </div>
-      <div class="modal-body" id="score-breakdown-content">
-        <!-- Score breakdown will be inserted here by JavaScript -->
+      <div class="modal-body">
+        <div id="score-breakdown-content">
+          <!-- Score breakdown will be inserted here by JavaScript -->
+        </div>
       </div>
     </div>
   </div>
@@ -140,7 +157,10 @@
     </div>
   </div>
 
+  <script src="vendor/chart.js"></script>
   <script src="popup/scoreBreakdown.js"></script>
   <script src="popup/popup.js" type="module"></script>
 </body>
 </html>
+
+

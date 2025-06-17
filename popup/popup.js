@@ -1,545 +1,702 @@
-// Import the ScoreBreakdown class
-const { ScoreBreakdown } = window.ScoreBreakdown || {};
+// DOM elements
+let visitsCountEl;
+let timeSpentEl;
+let topSitesList;
+let statusEl;
+let refreshBtn;
+let scoreChartInstance;
+let activityChartInstance;
+let trackingToggle;
+let settingsButton;
+let actionButton;
+let scoreValueEl;
+let scoreLabelEl;
+let recommendationText;
+let themeSwitcher;
+let scoreBreakdownBtn;
+let scoreBreakdownModal;
+let scoreBreakdownInstance; // Declare a global variable for the ScoreBreakdown instance
+let settingsModal; // Add settings modal element
+let pollingIntervalId = null;
 
-document.addEventListener('DOMContentLoaded', async () => {
-  // DOM Elements
-  const scoreElement = document.getElementById('score');
-  const scoreDescription = document.getElementById('score-description');
-  const todayTimeElement = document.getElementById('today-time');
-  const dailyAvgElement = document.getElementById('daily-avg');
-  const focusTimeElement = document.getElementById('focus-time');
-  const distractionsElement = document.getElementById('distractions');
-  const settingsBtn = document.getElementById('settings-btn');
-  const settingsModal = document.getElementById('settings-modal');
-  const closeModalBtn = document.querySelector('.close-modal');
-  const saveSettingsBtn = document.getElementById('save-settings');
-  const resetStatsBtn = document.getElementById('reset-stats');
-  const takeBreakBtn = document.getElementById('take-break');
-  const focusModeBtn = document.getElementById('focus-mode');
-  const scoreBreakdownBtn = document.createElement('button');
-  scoreBreakdownBtn.id = 'score-breakdown-btn';
-  scoreBreakdownBtn.className = 'icon-btn';
-  scoreBreakdownBtn.title = 'View Score Breakdown';
-  scoreBreakdownBtn.innerHTML = '<span class="material-icons">insights</span>';
-  
-  // THEME SWITCHER LOGIC
-  const themeSwitcher = document.getElementById('theme-switcher');
-  const body = document.body;
-  const themeMap = {
-    healthy: 'theme-healthy',
-    moderate: 'theme-moderate',
-    concerning: 'theme-concerning'
-  };
-  // Load theme from localStorage
-  const savedTheme = localStorage.getItem('mindwell-theme');
-  if (savedTheme && themeMap[savedTheme]) {
-    body.classList.remove('theme-healthy', 'theme-moderate', 'theme-concerning');
-    body.classList.add(themeMap[savedTheme]);
-    if (themeSwitcher) themeSwitcher.value = savedTheme;
-  }
-  
-  // Insert the score breakdown button next to the settings button
-  settingsBtn.parentNode.insertBefore(scoreBreakdownBtn, settingsBtn.nextSibling);
-  
-  // Initialize ScoreBreakdown component
-  const scoreBreakdownModal = document.getElementById('score-breakdown');
-  const scoreBreakdownContent = document.getElementById('score-breakdown-content');
-  let scoreBreakdownComponent;
-  
-  if (ScoreBreakdown) {
-    scoreBreakdownComponent = new ScoreBreakdown();
-    scoreBreakdownContent.appendChild(scoreBreakdownComponent.getElement());
-  }
-  
-  // Default settings
-  const defaultSettings = {
-    dailyLimit: 120, // minutes
-    workHours: { start: '09:00', end: '17:00' },
-    notifications: {
-      enabled: true,
-      interval: 60 // minutes
-    },
-    focusMode: {
-      enabled: false,
-      duration: 25 // minutes
-    },
-    blacklist: []
-  };
-  
-  // State
-  let settings = { ...defaultSettings };
-  let stats = {
-    dailyUsage: 0, // in minutes
-    weeklyAverage: 0, // in minutes
-    focusTime: 0, // in minutes
-    distractions: 0,
-    lastUpdated: new Date().toISOString()
-  };
-  
-  // Initialize the popup
-  async function init() {
-    await loadData();
-    updateUI();
-    setupEventListeners();
-    startUsageTracking();
-  }
-  
-  // Load data from storage
-  async function loadData() {
-    try {
-      const data = await chrome.storage.local.get(['settings', 'stats']);
-      settings = { ...defaultSettings, ...(data.settings || {}) };
-      
-      // Initialize stats with default values if they don't exist
-      const defaultStats = {
-        dailyUsage: 0,
-        weeklyAverage: 0,
-        focusTime: 0,
-        distractions: 0,
-        wellnessScore: 100, // Default wellness score
-        lastUpdated: new Date().toISOString()
-      };
-      
-      // Merge with existing stats, ensuring we have all required fields
-      stats = { ...defaultStats, ...(data.stats || {}) };
-      
-      // Ensure wellnessScore is set (in case it was missing in storage)
-      if (typeof stats.wellnessScore !== 'number') {
-        stats.wellnessScore = 100;
-        // Save the updated stats back to storage
-        await chrome.storage.local.set({ stats });
-      }
-    } catch (error) {
-      console.error('Error loading data:', error);
-      showNotification('Error loading data', 'error');
-    }
-  }
-  
-  // Save data to storage
-  async function saveData() {
-    try {
-      await chrome.storage.local.set({ settings, stats });
-    } catch (error) {
-      console.error('Error saving data:', error);
-      showNotification('Error saving data', 'error');
-    }
-  }
-  
-  // Update the UI with current data
-  function updateUI() {
-    // Update score
-    const score = calculateWellnessScore();
-    scoreElement.textContent = score;
-    updateScoreDescription(score);
-    
-    // Update stats
-    todayTimeElement.textContent = `${Math.floor(stats.dailyUsage)}m`;
-    dailyAvgElement.textContent = `${Math.floor(stats.weeklyAverage)}m`;
-    focusTimeElement.textContent = `${Math.floor(stats.focusTime)}m`;
-    distractionsElement.textContent = stats.distractions;
-    
-    // Update UI based on focus mode
-    updateFocusModeUI();
-  }
-  
-  // Calculate wellness score (0-100)
-  function calculateWellnessScore() {
-    // If we have a stored wellness score, use it
-    if (typeof stats.wellnessScore === 'number') {
-      return stats.wellnessScore;
-    }
-    
-    // Fallback calculation if no score is stored
-    const dailyGoal = settings.dailyLimit * 60; // in seconds
-    const usageRatio = Math.min(stats.dailyUsage / dailyGoal, 1);
-    const focusRatio = stats.focusTime / (stats.focusTime + stats.distractions || 1);
-    
-    // Weighted score (70% usage, 30% focus)
-    const score = 100 - (usageRatio * 70) + (focusRatio * 30);
-    return Math.max(0, Math.min(100, Math.round(score)));
-  }
-  
-  // Update score description based on value
-  function updateScoreDescription(score) {
-    let description = '';
-    let emoji = '😊';
-    
-    if (score >= 80) {
-      description = 'Excellent! You\'re doing great with your digital wellness.';
-      emoji = '🌟';
-    } else if (score >= 60) {
-      description = 'Good job! You\'re maintaining a healthy balance.';
-      emoji = '👍';
-    } else if (score >= 40) {
-      description = 'Not bad, but there\'s room for improvement.';
-      emoji = '🤔';
-    } else {
-      description = 'Consider taking a break and reducing screen time.';
-      emoji = '💡';
-    }
-    
-    scoreDescription.textContent = `${emoji} ${description}`;
-  }
-  
-  // Start tracking usage
-  function startUsageTracking() {
-    // Track active tab changes
-    chrome.tabs.onActivated.addListener(handleTabActivated);
-    chrome.tabs.onUpdated.addListener(handleTabUpdated);
-    
-    // Track idle state
-    chrome.idle.onStateChanged.addListener(handleIdleStateChange);
-    
-    // Setup alarms
-    setupAlarms();
-    
-    // Initial update
-    updateUsageStats();
-  }
-  
-  // Handle tab activation
-  async function handleTabActivated(activeInfo) {
-    const tab = await chrome.tabs.get(activeInfo.tabId);
-    if (tab && tab.url) {
-      trackTabUsage(tab);
-    }
-  }
-  
-  // Handle tab updates
-  function handleTabUpdated(tabId, changeInfo, tab) {
-    if (changeInfo.status === 'complete' && tab.active) {
-      trackTabUsage(tab);
-    }
-  }
-  
-  // Track tab usage
-  function trackTabUsage(tab) {
-    const url = new URL(tab.url);
-    const domain = url.hostname;
-    
-    // Check if domain is blacklisted
-    if (settings.blacklist.includes(domain)) {
-      showNotification(`You're on a blacklisted site: ${domain}`, 'warning');
-    }
-    
-    // Update usage stats
-    updateUsageStats();
-  }
-  
-  // Update usage statistics
-  async function updateUsageStats() {
-    try {
-      const usage = await chrome.storage.local.get('usage');
-      const today = new Date().toDateString();
-      
-      if (usage[today]) {
-        stats.dailyUsage = usage[today].total || 0;
-        stats.focusTime = usage[today].focusTime || 0;
-        stats.distractions = usage[today].distractions || 0;
-        
-        // Calculate weekly average
-        const lastWeek = new Date();
-        lastWeek.setDate(lastWeek.getDate() - 7);
-        
-        let totalUsage = 0;
-        let dayCount = 0;
-        
-        for (let i = 0; i < 7; i++) {
-          const date = new Date();
-          date.setDate(date.getDate() - i);
-          const dateStr = date.toDateString();
-          
-          if (usage[dateStr]) {
-            totalUsage += usage[dateStr].total || 0;
-            dayCount++;
-          }
-        }
-        
-        stats.weeklyAverage = dayCount > 0 ? totalUsage / dayCount : 0;
-        stats.lastUpdated = new Date().toISOString();
-        
-        // Save updated stats
-        await saveData();
-        updateUI();
-      }
-    } catch (error) {
-      console.error('Error updating usage stats:', error);
-    }
-  }
-  
-  // Handle idle state changes
-  function handleIdleStateChange(newState) {
-    if (newState === 'idle') {
-      // Pause tracking when user is idle
-      console.log('User is idle, pausing tracking');
-    } else if (newState === 'active') {
-      // Resume tracking when user is back
-      console.log('User is active, resuming tracking');
-      updateUsageStats();
-    }
-  }
-  
-  // Setup alarms for periodic updates
-  function setupAlarms() {
-    // Clear any existing alarms
-    chrome.alarms.clearAll();
-    
-    // Create a new alarm that triggers every minute
-    chrome.alarms.create('usageUpdate', {
-      periodInMinutes: 1
-    });
-    
-    // Listen for alarm triggers
-    chrome.alarms.onAlarm.addListener((alarm) => {
-      if (alarm.name === 'usageUpdate') {
-        updateUsageStats();
-      }
-    });
-  }
-  
-  // Show a notification
-  function showNotification(message, type = 'info') {
-    if (!settings.notifications.enabled) return;
-    
-    const notificationsContainer = document.getElementById('notifications');
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
-    notification.innerHTML = `
-      <span class="material-icons">${getNotificationIcon(type)}</span>
-      <div class="notification-content">${message}</div>
-      <button class="notification-close">&times;</button>
-    `;
-    
-    const closeBtn = notification.querySelector('.notification-close');
-    closeBtn.addEventListener('click', () => {
-      notification.style.animation = 'fadeOut 0.3s forwards';
-      setTimeout(() => notification.remove(), 300);
-    });
-    
-    notificationsContainer.appendChild(notification);
-    
-    // Auto-remove after 5 seconds
-    setTimeout(() => {
-      if (notification.parentNode) {
-        notification.style.animation = 'fadeOut 0.3s forwards';
-        setTimeout(() => notification.remove(), 300);
-      }
-    }, 5000);
-  }
-  
-  // Get notification icon based on type
-  function getNotificationIcon(type) {
-    const icons = {
-      info: 'info',
-      success: 'check_circle',
-      warning: 'warning',
-      error: 'error'
-    };
-    return icons[type] || 'info';
-  }
-  
-  // Toggle focus mode
-  function toggleFocusMode() {
-    settings.focusMode.enabled = !settings.focusMode.enabled;
-    
-    if (settings.focusMode.enabled) {
-      // Start focus mode
-      showNotification(`Focus mode activated for ${settings.focusMode.duration} minutes`, 'success');
-      
-      // Set focus mode timeout
-      setTimeout(() => {
-        if (settings.focusMode.enabled) {
-          settings.focusMode.enabled = false;
-          showNotification('Focus mode has ended. Take a break!', 'info');
-          updateFocusModeUI();
-        }
-      }, settings.focusMode.duration * 60 * 1000);
-    } else {
-      // End focus mode
-      showNotification('Focus mode deactivated', 'info');
-    }
-    
-    updateFocusModeUI();
-    saveData();
-  }
-  
-  // Update focus mode UI
-  function updateFocusModeUI() {
-    if (settings.focusMode.enabled) {
-      focusModeBtn.innerHTML = `
-        <span class="material-icons">timer_off</span>
-        End Focus Mode
-      `;
-      focusModeBtn.classList.add('active');
-    } else {
-      focusModeBtn.innerHTML = `
-        <span class="material-icons">timer</span>
-        Focus Mode
-      `;
-      focusModeBtn.classList.remove('active');
-    }
-  }
-  
-  // Open settings modal
-  function openSettings() {
-    // Populate form with current settings
-    document.getElementById('daily-limit').value = settings.dailyLimit;
-    document.getElementById('work-start').value = settings.workHours.start;
-    document.getElementById('work-end').value = settings.workHours.end;
-    document.getElementById('enable-notifications').checked = settings.notifications.enabled;
-    document.getElementById('notification-interval').value = settings.notifications.interval;
-    document.getElementById('enable-focus-mode').checked = settings.focusMode.enabled;
-    document.getElementById('focus-duration').value = settings.focusMode.duration;
-    
-    // Show modal
-    settingsModal.classList.add('show');
-    document.body.style.overflow = 'hidden';
-  }
-  
-  // Close settings modal
-  function closeSettings() {
-    settingsModal.classList.remove('show');
-    document.body.style.overflow = '';
-  }
-  
-  // Save settings
-  async function saveSettings() {
-    // Get values from form
-    settings.dailyLimit = parseInt(document.getElementById('daily-limit').value) || 120;
-    settings.workHours = {
-      start: document.getElementById('work-start').value || '09:00',
-      end: document.getElementById('work-end').value || '17:00'
-    };
-    settings.notifications = {
-      enabled: document.getElementById('enable-notifications').checked,
-      interval: parseInt(document.getElementById('notification-interval').value) || 60
-    };
-    settings.focusMode = {
-      enabled: document.getElementById('enable-focus-mode').checked,
-      duration: parseInt(document.getElementById('focus-duration').value) || 25
-    };
-    
-    // Save to storage
-    await saveData();
-    
-    // Update UI
-    updateUI();
-    showNotification('Settings saved successfully', 'success');
-    
-    // Close modal
-    closeSettings();
-  }
-  
-  // Reset statistics
-  async function resetStatistics() {
-    if (confirm('Are you sure you want to reset all statistics? This cannot be undone.')) {
-      stats = {
-        dailyUsage: 0,
-        weeklyAverage: 0,
-        focusTime: 0,
-        distractions: 0,
-        lastUpdated: new Date().toISOString()
-      };
-      
-      await chrome.storage.local.set({ stats });
-      updateUI();
-      showNotification('Statistics have been reset', 'success');
-    }
-  }
-  
-  // Setup event listeners
-  function setupEventListeners() {
-    // Settings button
-    settingsBtn.addEventListener('click', openSettings);
-    closeModalBtn.addEventListener('click', closeSettings);
-    saveSettingsBtn.addEventListener('click', saveSettings);
-    resetStatsBtn.addEventListener('click', resetStatistics);
-    
-    // Score breakdown button
-    if (scoreBreakdownBtn && scoreBreakdownModal) {
-      scoreBreakdownBtn.addEventListener('click', () => {
-        scoreBreakdownModal.style.display = 'block';
-        if (scoreBreakdownComponent) {
-          scoreBreakdownComponent.show();
-        }
-      });
-      
-      // Close score breakdown when clicking the close button
-      const closeScoreBreakdown = document.getElementById('close-score-breakdown');
-      if (closeScoreBreakdown) {
-        closeScoreBreakdown.addEventListener('click', () => {
-          scoreBreakdownModal.style.display = 'none';
-        });
-      }
-      
-      // Close when clicking outside
-      window.addEventListener('click', (e) => {
-        if (e.target === scoreBreakdownModal) {
-          scoreBreakdownModal.style.display = 'none';
-        }
-      });
-    }
-    
-    takeBreakBtn.addEventListener('click', () => {
-      showNotification('Taking a short break can help refresh your mind!', 'info');
-      // TODO: Implement break functionality
-    });
-    
-    focusModeBtn.addEventListener('click', toggleFocusMode);
-    
-    // Close modal when clicking outside
-    window.addEventListener('click', (e) => {
-      if (e.target === settingsModal) {
-        closeSettings();
-      }
-    });
-    
-    // Listen for keyboard events
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        if (!settingsModal.classList.contains('hidden')) {
-          closeSettings();
-        }
-        if (scoreBreakdownModal.style.display === 'block') {
-          scoreBreakdownModal.style.display = 'none';
-        }
-      }
-    });
-    
-    // Listen for messages from background script
-    chrome.runtime.onMessage.addListener((message) => {
-      if (message.type === 'statsUpdated') {
-        updateUI();
-        // Update score breakdown if it's visible
-        if (scoreBreakdownComponent && scoreBreakdownModal.style.display === 'block') {
-          scoreBreakdownComponent.updateBreakdown();
-        }
-      } else if (message.type === 'focusModeToggled') {
-        updateFocusModeUI();
-      }
-    });
+// Initialize popup when DOM is loaded
+document.addEventListener("DOMContentLoaded", () => {
+  console.log("[MindWell] DOM loaded");
 
-    // THEME SWITCHER EVENT LISTENER
-    if (themeSwitcher) {
-      themeSwitcher.addEventListener('change', (e) => {
-        const selected = e.target.value;
-        body.classList.remove('theme-healthy', 'theme-moderate', 'theme-concerning');
-        body.classList.add(themeMap[selected]);
-        localStorage.setItem('mindwell-theme', selected);
-      });
-    }
+  // Initialize DOM elements
+  initializeElements();
+
+  // Initialize charts
+  initializeScoreChart();
+  initializeActivityChart();
+
+  // Load score breakdown content dynamically if it's not already handled by scoreBreakdown.js
+  const scoreBreakdownContentEl = document.getElementById("score-breakdown-content");
+  if (scoreBreakdownContentEl && window.ScoreBreakdown) {
+    scoreBreakdownInstance = new window.ScoreBreakdown(); // Create the instance once
+    scoreBreakdownContentEl.appendChild(scoreBreakdownInstance.getElement());
+    // Initial update of breakdown data. It will be updated when opened.
+    scoreBreakdownInstance.updateBreakdown();
   }
-  
-  // Initialize the app
-  init();
-  
-  // Listen for messages from background script or content scripts
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.type === 'notification') {
-      showNotification(message.text, message.level || 'info');
+
+  // Set up event listeners
+  setupEventListeners();
+
+  // Load initial data
+  loadBrowsingData();
+
+  // Start polling for live updates every 5 seconds
+  pollingIntervalId = setInterval(() => {
+    loadBrowsingData();
+  }, 5000);
+
+  // Listen for data updates from background
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message && message.type === "dataUpdated") {
+      console.log("[MindWell] Received data update:", message);
+      updateUIWithData(message.browsingData);
     }
-    
-    // Return true to indicate we want to send a response asynchronously
-    return true;
+    return false;
   });
-}); // Close the DOMContentLoaded event listener
+
+  // Load initial tracking state
+  chrome.storage.local.get("settings", (data) => {
+    if (trackingToggle) {
+      trackingToggle.checked = data.settings?.isTracking !== false;
+    }
+  });
+});
+
+// Clear polling interval when popup is closed/unloaded
+window.addEventListener("unload", () => {
+  if (pollingIntervalId) {
+    clearInterval(pollingIntervalId);
+    pollingIntervalId = null;
+  }
+});
+
+// Initialize DOM elements
+function initializeElements() {
+  scoreValueEl = document.getElementById("wellness-score-value");
+  scoreLabelEl = document.getElementById("wellness-score-label");
+  topSitesList = document.getElementById("top-sites");
+  recommendationText = document.getElementById("recommendation-text");
+  actionButton = document.getElementById("action-button");
+  trackingToggle = document.getElementById("tracking-toggle");
+  settingsButton = document.getElementById("settings-btn");
+  statusEl = document.getElementById("status"); // Assuming a status element exists for messages
+  themeSwitcher = document.getElementById("theme-switcher");
+  scoreBreakdownBtn = document.getElementById("score-breakdown-btn");
+  scoreBreakdownModal = document.getElementById("score-breakdown");
+  settingsModal = document.getElementById("settings-modal");
+  const closeScoreBreakdownBtn = document.getElementById("close-score-breakdown");
+  const closeSettingsBtn = document.querySelector("#settings-modal .close-modal");
+
+  // Log warnings for missing elements
+  const elementsToCheck = {
+    "wellness-score-value": scoreValueEl,
+    "wellness-score-label": scoreLabelEl,
+    "top-sites": topSitesList,
+    "action-button": actionButton,
+    "tracking-toggle": trackingToggle,
+    "settings-btn": settingsButton,
+    "theme-switcher": themeSwitcher,
+    "score-breakdown-btn": scoreBreakdownBtn,
+    "score-breakdown": scoreBreakdownModal,
+    "settings-modal": settingsModal,
+    "close-score-breakdown": closeScoreBreakdownBtn,
+    "close-settings": closeSettingsBtn,
+  };
+
+  Object.entries(elementsToCheck).forEach(([name, element]) => {
+    if (!element) {
+      console.warn(`[MindWell] Element not found: ${name}`);
+    }
+  });
+}
+
+// Set up event listeners
+function setupEventListeners() {
+  if (trackingToggle) {
+    trackingToggle.addEventListener("change", handleTrackingToggle);
+  }
+
+  if (settingsButton) {
+    settingsButton.addEventListener("click", () => {
+      settingsModal.classList.add("show");
+      document.body.classList.add("modal-open");
+    });
+  }
+
+  if (actionButton) {
+    actionButton.addEventListener("click", handleActionButton);
+  }
+
+  if (themeSwitcher) {
+    themeSwitcher.addEventListener("change", handleThemeSwitch);
+  }
+
+  if (scoreBreakdownBtn && scoreBreakdownModal) {
+    scoreBreakdownBtn.addEventListener("click", () => {
+      scoreBreakdownModal.classList.add("show");
+      document.body.classList.add("modal-open");
+      // Trigger update of breakdown data and show the content when modal is opened
+      if (scoreBreakdownInstance) {
+        scoreBreakdownInstance.updateBreakdown();
+        scoreBreakdownInstance.show(); // Ensure the content inside the modal is displayed
+      }
+    });
+  }
+
+  const closeScoreBreakdownBtn = document.getElementById("close-score-breakdown");
+  if (closeScoreBreakdownBtn && scoreBreakdownModal) {
+    closeScoreBreakdownBtn.addEventListener("click", () => {
+      scoreBreakdownModal.classList.remove("show");
+      document.body.classList.remove("modal-open");
+      if (scoreBreakdownInstance) {
+        scoreBreakdownInstance.hide(); // Hide the content inside the modal when closing
+      }
+    });
+  }
+
+  const closeSettingsBtn = document.querySelector("#settings-modal .close-modal");
+  if (closeSettingsBtn && settingsModal) {
+    closeSettingsBtn.addEventListener("click", () => {
+      settingsModal.classList.remove("show");
+      document.body.classList.remove("modal-open");
+    });
+  }
+
+  // Settings modal functionality
+  const saveSettingsBtn = document.getElementById("save-settings");
+  const resetStatsBtn = document.getElementById("reset-stats");
+
+  if (saveSettingsBtn) {
+    saveSettingsBtn.addEventListener("click", saveSettings);
+  }
+
+  if (resetStatsBtn) {
+    resetStatsBtn.addEventListener("click", resetStatistics);
+  }
+
+  // Load settings when modal opens
+  if (settingsButton && settingsModal) {
+    settingsButton.addEventListener("click", () => {
+      loadSettingsIntoModal();
+      settingsModal.classList.add("show");
+      document.body.classList.add("modal-open");
+    });
+  }
+
+  // Close modals when clicking outside
+  window.addEventListener("click", (event) => {
+    if (event.target === scoreBreakdownModal) {
+      scoreBreakdownModal.classList.remove("show");
+      document.body.classList.remove("modal-open");
+      if (scoreBreakdownInstance) {
+        scoreBreakdownInstance.hide();
+      }
+    }
+    if (event.target === settingsModal) {
+      settingsModal.classList.remove("show");
+      document.body.classList.remove("modal-open");
+    }
+  });
+}
+
+// Initialize the score chart (circular progress)
+function initializeScoreChart() {
+  const canvas = document.getElementById("wellness-score-chart");
+  if (!canvas) {
+    console.warn("[MindWell] Score chart canvas not found");
+    return;
+  }
+
+  const ctx = canvas.getContext("2d");
+  scoreChartInstance = new Chart(ctx, {
+    type: "doughnut",
+    data: {
+      datasets: [
+        {
+          data: [0, 100], // Initial score out of 100
+          backgroundColor: ["#007AFF", "rgba(255,255,255,0.12)"],
+          borderWidth: 0,
+        },
+      ],
+    },
+    options: {
+      cutout: "80%",
+      rotation: -90,
+      circumference: 180,
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: {
+          display: false,
+        },
+        tooltip: {
+          enabled: false,
+        },
+      },
+    },
+  });
+}
+
+// Initialize the activity chart (pie chart)
+function initializeActivityChart() {
+  const canvas = document.getElementById("activity-chart");
+  if (!canvas) {
+    console.warn("[MindWell] Activity chart canvas not found");
+    return;
+  }
+
+  const ctx = canvas.getContext("2d");
+  activityChartInstance = new Chart(ctx, {
+    type: "pie",
+    data: {
+      labels: [],
+      datasets: [
+        {
+          data: [],
+          backgroundColor: [
+            "#007AFF", // Apple Blue
+            "#5AC8FA", // Light Blue
+            "#34C759", // Apple Green
+            "#FF9500", // Apple Orange
+            "#AF52DE", // Apple Purple
+            "#FF2D92", // Apple Pink
+          ],
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: {
+          display: false,
+        },
+      },
+    },
+  });
+}
+
+// Update status message
+function updateStatus(message, isError = false) {
+  if (!statusEl) {
+    console.log(`[MindWell] Status update (no element): ${message}`);
+    return;
+  }
+
+  console.log(`[MindWell] ${isError ? "Error: " : ""}${message}`);
+  statusEl.textContent = message;
+  statusEl.className = isError ? "error" : "";
+
+  // Clear status after 3 seconds if it's not an error
+  if (!isError) {
+    setTimeout(() => {
+      if (statusEl && statusEl.textContent === message) {
+        statusEl.textContent = "";
+      }
+    }, 3000);
+  }
+}
+
+// Update the top sites list in the UI
+function updateTopSitesList(domains) {
+  if (!topSitesList) {
+    console.warn("[MindWell] Top sites list element not found");
+    return;
+  }
+
+  if (!domains || Object.keys(domains).length === 0) {
+    topSitesList.innerHTML = "<li>No browsing data yet</li>";
+    return;
+  }
+
+  // Sort domains by time spent (highest first)
+  const sortedDomains = Object.entries(domains)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5); // Show top 5
+
+  // Clear and update the list
+  topSitesList.innerHTML = "";
+
+  sortedDomains.forEach(([domain, time], index) => {
+    const li = document.createElement("li");
+    li.className = "domain-item";
+    const color = activityChartInstance.data.datasets[0].backgroundColor[index % activityChartInstance.data.datasets[0].backgroundColor.length];
+    li.innerHTML = `
+            <span class="domain-color" style="background-color: ${color}"></span>
+            <span class="domain-name">${domain}</span>
+            <span class="domain-time">${formatTime(time)}</span>
+        `;
+    topSitesList.appendChild(li);
+  });
+}
+
+// Get label for wellness score
+function getScoreLabel(score) {
+  if (score === 0) return "No data available";
+  if (score >= 80) return "Excellent Digital Well-being";
+  if (score >= 60) return "Good Digital Well-being";
+  if (score >= 40) return "Moderate Digital Well-being";
+  if (score >= 20) return "Needs Attention";
+  return "High Negative Impact";
+}
+
+// Update UI with browsing data
+function updateUIWithData(browsingData) {
+  console.log("[MindWell] updateUIWithData called with:", browsingData);
+  console.log("[MindWell] Domains data:", browsingData.domains);
+  if (!browsingData) {
+    console.warn("[MindWell] No browsing data provided");
+    return;
+  }
+
+  // Update wellness score
+  if (scoreValueEl && scoreLabelEl) {
+    const score = browsingData.wellnessScore?.score || 0;
+    scoreValueEl.textContent = score;
+    scoreLabelEl.textContent = getScoreLabel(score);
+    updateWellnessScoreChart(score);
+    updateTheme(score);
+  }
+
+  // Update stats grid (assuming elements exist with these IDs)
+  document.getElementById("today-time").textContent = formatTime(browsingData.totalTimeSpent || 0);
+  document.getElementById("daily-avg").textContent = formatTime(browsingData.dailyAverage || 0);
+  document.getElementById("focus-time").textContent = formatTime(browsingData.focusTime || 0);
+  document.getElementById("distractions").textContent = (browsingData.distractions || 0).toString();
+
+  // Update activity chart and top sites
+  updateActivityData(browsingData);
+
+  // Update recommendation
+  updateRecommendation(browsingData);
+}
+
+// Update wellness score chart display
+function updateWellnessScoreChart(score) {
+  if (!scoreChartInstance) {
+    console.warn("[MindWell] Score chart not initialized");
+    return;
+  }
+
+  const dataValue = score;
+  const remaining = 100 - score;
+
+  scoreChartInstance.data.datasets[0].data = [dataValue, remaining];
+
+  let backgroundColor;
+  if (score >= 80) {
+    backgroundColor = ["#34C759", "rgba(255,255,255,0.12)"]; // Apple Green - Healthy
+  } else if (score >= 60) {
+    backgroundColor = ["#FF9500", "rgba(255,255,255,0.12)"]; // Apple Orange - Moderate
+  } else {
+    backgroundColor = ["#FF3B30", "rgba(255,255,255,0.12)"]; // Apple Red - Concerning
+  }
+  scoreChartInstance.data.datasets[0].backgroundColor = backgroundColor;
+
+  scoreChartInstance.update();
+}
+
+// Update activity data
+function updateActivityData(browsingData) {
+  const domains = browsingData.domains || {};
+  console.log("[MindWell] updateActivityData domains:", domains);
+  if (!activityChartInstance) {
+    console.warn("[MindWell] Activity chart not initialized");
+    return;
+  }
+
+  if (!domains || Object.keys(domains).length === 0) {
+    activityChartInstance.data.labels = ["No data"];
+    activityChartInstance.data.datasets[0].data = [1];
+    activityChartInstance.update();
+    updateTopSitesList({}); // Clear top sites list
+    return;
+  }
+
+  // Sort domains by time spent
+  const sortedDomains = Object.entries(domains)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5); // Show top 5 in chart and list
+
+  activityChartInstance.data.labels = sortedDomains.map(([domain]) => domain);
+  activityChartInstance.data.datasets[0].data = sortedDomains.map(([, time]) => time);
+  activityChartInstance.update();
+
+  updateTopSitesList(Object.fromEntries(sortedDomains));
+}
+
+// Update recommendation
+function updateRecommendation(browsingData) {
+  if (!actionButton) {
+    console.warn("[MindWell] Action button not found");
+    return;
+  }
+
+  // Get the first insight as recommendation
+  const recommendation = browsingData.insights?.[0] || "Take a mindfulness break after browsing";
+  // recommendationText.textContent = recommendation; // This element doesn't exist in popup.html anymore
+
+  // Update action button based on recommendation
+  if (recommendation.includes("mindfulness")) {
+    actionButton.textContent = "Start Mindfulness Break";
+  } else if (recommendation.includes("break")) {
+    actionButton.textContent = "Take a Break";
+  } else {
+    actionButton.textContent = "Learn More";
+  }
+}
+
+// Handle tracking toggle
+function handleTrackingToggle(event) {
+  const isTracking = event.target.checked;
+  chrome.storage.local.get("settings", (data) => {
+    const settings = data.settings || {};
+    settings.isTracking = isTracking;
+    chrome.storage.local.set({ settings }, () => {
+      updateStatus(isTracking ? "Tracking enabled" : "Tracking paused");
+    });
+  });
+}
+
+// Open settings
+function openSettings() {
+  chrome.runtime.openOptionsPage();
+}
+
+// Handle action button
+function handleActionButton() {
+  chrome.tabs.create({ url: "https://www.akeyreu.com" });
+}
+
+// Load browsing data from the background script
+async function loadBrowsingData() {
+  try {
+    updateStatus("Loading data...");
+    const response = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ type: "getBrowsingData" }, (response) => {
+        if (chrome.runtime.lastError) {
+          resolve({ success: false, error: chrome.runtime.lastError });
+          return;
+        }
+        console.log("Received response in popup:", response);
+        resolve(response || { success: false, error: "No response" });
+      });
+    });
+
+    if (!response.success) {
+      throw new Error(response.error || "Failed to load data");
+    }
+
+    updateUIWithData(response.browsingData);
+    updateStatus("Data loaded");
+  } catch (error) {
+    console.error("Error in loadBrowsingData:", error);
+    updateStatus("Error loading data: " + (error.message || "Unknown error"), true);
+  }
+}
+
+// Format time in minutes to a human-readable string
+function formatTime(minutes) {
+  if (minutes < 60) {
+    return `${Math.round(minutes)}m`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = Math.round(minutes % 60);
+  return `${hours}h ${remainingMinutes > 0 ? remainingMinutes + "m" : ""}`.trim();
+}
+
+// Handle theme switching
+function handleThemeSwitch(event) {
+  const theme = event.target.value;
+  document.body.className = `theme-${theme}`;
+}
+
+// Update theme based on score
+function updateTheme(score) {
+  let theme = "healthy";
+  if (score < 60 && score >= 30) {
+    theme = "moderate";
+  } else if (score < 30) {
+    theme = "concerning";
+  }
+  document.body.className = `theme-${theme}`;
+  if (themeSwitcher) {
+    themeSwitcher.value = theme;
+  }
+}
+
+// Settings functionality
+async function loadSettingsIntoModal() {
+  try {
+    const data = await new Promise(resolve => {
+      chrome.storage.local.get('settings', resolve);
+    });
+
+    const settings = data.settings || {};
+
+    // Load values into form elements
+    const dailyLimit = document.getElementById('daily-limit');
+    const workStart = document.getElementById('work-start');
+    const workEnd = document.getElementById('work-end');
+    const enableNotifications = document.getElementById('enable-notifications');
+    const notificationInterval = document.getElementById('notification-interval');
+    const enableFocusMode = document.getElementById('enable-focus-mode');
+    const focusDuration = document.getElementById('focus-duration');
+
+    if (dailyLimit) dailyLimit.value = settings.dailyGoal || 120;
+    if (workStart) workStart.value = settings.workStart || '09:00';
+    if (workEnd) workEnd.value = settings.workEnd || '17:00';
+    if (enableNotifications) enableNotifications.checked = settings.enableNotifications !== false;
+    if (notificationInterval) notificationInterval.value = settings.notificationInterval || 60;
+    if (enableFocusMode) enableFocusMode.checked = settings.enableFocusMode || false;
+    if (focusDuration) focusDuration.value = settings.focusDuration || 25;
+
+  } catch (error) {
+    console.error('Error loading settings:', error);
+    showNotification('Failed to load settings', 'error');
+  }
+}
+
+async function saveSettings() {
+  try {
+    // Get values from form elements
+    const dailyLimit = document.getElementById('daily-limit');
+    const workStart = document.getElementById('work-start');
+    const workEnd = document.getElementById('work-end');
+    const enableNotifications = document.getElementById('enable-notifications');
+    const notificationInterval = document.getElementById('notification-interval');
+    const enableFocusMode = document.getElementById('enable-focus-mode');
+    const focusDuration = document.getElementById('focus-duration');
+
+    const settings = {
+      dailyGoal: parseInt(dailyLimit?.value) || 120,
+      workStart: workStart?.value || '09:00',
+      workEnd: workEnd?.value || '17:00',
+      enableNotifications: enableNotifications?.checked !== false,
+      notificationInterval: parseInt(notificationInterval?.value) || 60,
+      enableFocusMode: enableFocusMode?.checked || false,
+      focusDuration: parseInt(focusDuration?.value) || 25,
+      isTracking: true // Keep tracking enabled
+    };
+
+    await new Promise(resolve => {
+      chrome.storage.local.set({ settings }, resolve);
+    });
+
+    showNotification('Settings saved successfully!', 'success');
+
+    // Close modal after a short delay
+    setTimeout(() => {
+      settingsModal.classList.remove("show");
+      document.body.classList.remove("modal-open");
+    }, 1000);
+
+  } catch (error) {
+    console.error('Error saving settings:', error);
+    showNotification('Failed to save settings', 'error');
+  }
+}
+
+async function resetStatistics() {
+  if (!confirm('Are you sure you want to reset all statistics? This action cannot be undone.')) {
+    return;
+  }
+
+  try {
+    // Clear browsing data but keep settings
+    await new Promise(resolve => {
+      chrome.storage.local.remove(['browsingData', 'stats'], resolve);
+    });
+
+    // Reinitialize with empty data
+    const emptyData = {
+      browsingData: {
+        dailyStats: {},
+        totalTime: 0,
+        categories: {}
+      },
+      stats: {
+        dailyUsage: 0,
+        weeklyAverage: 0,
+        focusTime: 0,
+        distractions: 0,
+        wellnessScore: 50,
+        lastUpdated: new Date().toISOString()
+      }
+    };
+
+    await new Promise(resolve => {
+      chrome.storage.local.set(emptyData, resolve);
+    });
+
+    showNotification('Statistics reset successfully!', 'success');
+
+    // Refresh the UI
+    loadBrowsingData();
+
+    // Close modal after a short delay
+    setTimeout(() => {
+      settingsModal.classList.remove("show");
+      document.body.classList.remove("modal-open");
+    }, 1000);
+
+  } catch (error) {
+    console.error('Error resetting statistics:', error);
+    showNotification('Failed to reset statistics', 'error');
+  }
+}
+
+// Notification system
+function showNotification(message, type = 'info') {
+  const notificationsContainer = document.getElementById('notifications');
+  if (!notificationsContainer) return;
+
+  const notification = document.createElement('div');
+  notification.className = `notification ${type}`;
+  notification.innerHTML = `
+    <span class="material-icons">${getNotificationIcon(type)}</span>
+    <span>${message}</span>
+    <button class="notification-close">&times;</button>
+  `;
+
+  notificationsContainer.appendChild(notification);
+
+  // Show notification
+  setTimeout(() => {
+    notification.classList.add('show');
+  }, 100);
+
+  // Auto-hide after 3 seconds
+  setTimeout(() => {
+    hideNotification(notification);
+  }, 3000);
+
+  // Close button functionality
+  const closeBtn = notification.querySelector('.notification-close');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => hideNotification(notification));
+  }
+}
+
+function hideNotification(notification) {
+  notification.classList.remove('show');
+  setTimeout(() => {
+    if (notification.parentNode) {
+      notification.parentNode.removeChild(notification);
+    }
+  }, 300);
+}
+
+function getNotificationIcon(type) {
+  switch (type) {
+    case 'success': return 'check_circle';
+    case 'error': return 'error';
+    case 'warning': return 'warning';
+    default: return 'info';
+  }
+}
